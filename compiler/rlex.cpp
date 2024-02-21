@@ -1,16 +1,20 @@
 // 词法分析
 
-#include <map>
 #include <fstream>
-#include "utils/isingleton.cpp"
+#include "isingleton.hpp"
 #include <vector>
 #include <iostream>
+#include <unordered_set>
+#include <unordered_map>
+#include <string>
+#include <sstream>
 using namespace std;
 
-# define UCHAR_MAX (__SCHAR_MAX__ * 2 + 1)
+// # define UCHAR_MAX (__SCHAR_MAX__ * 2 + 1)
 # define FIRST_RESERVED	(UCHAR_MAX + 1)
 
-class RLex : ISingleton<RLex> {
+class RLex : public ISingleton<RLex> {
+public:
     // 保留字 从UCHAR_MAX后开始为了区别于所有单字符的关键字 （单字符如‘+’将直接对应他的ascii值）
     enum RESERVED {
         /* terminal symbols denoted by reserved words */
@@ -26,7 +30,7 @@ class RLex : ISingleton<RLex> {
     };
 
     // 映射
-    const map<const string, const int> tokens = {
+    const unordered_map<string, int> tokensMap = {
         {"and", RESERVED::TK_AND},
         {"break", RESERVED::TK_BREAK},
         {"do", RESERVED::TK_DO},
@@ -70,7 +74,12 @@ class RLex : ISingleton<RLex> {
         //"def", "auto", "bool", "int", "float", "double", "string"
     };
 
-    typedef int Token;
+    // unordered_set<char> whiteSpace = { ' ', '\r', '\n', '\t' };
+
+    struct Token {
+        int tid;
+        string tinfo;
+    };
 
     vector<Token> ReadStr(string str) {
         vector<Token> tokens;
@@ -79,23 +88,30 @@ class RLex : ISingleton<RLex> {
 
     vector<Token> ReadFile(string fileName) {
         ifstream file(fileName);
-        if (file.is_open()) {
-            string content;
+        vector<Token> tokens;
 
+        if (file.is_open()) {
             string line;
             while (getline(file, line)) {
-                content += line + "\n";
+                istringstream iss(line);
+                string s;
+                while (iss >> s) {
+                    auto it = tokensMap.find(s);
+                    if (it != tokensMap.end()) {
+                        tokens.push_back({ it->second, "" });
+                        cout << s << " " << it->second << endl;
+                    }
+                    else {
+                        cout << s << endl;
+                    }
+                }
             }
-
             file.close();
-
-            cout << "文件内容：" << endl;
-            cout << content << std::endl;
         }
         else {
-            cout << "无法打开文件" << endl;
+            cout << "无法打开文件"+fileName << endl;
         }
-        vector<Token> tokens;
+        
         return tokens;
     }
 
