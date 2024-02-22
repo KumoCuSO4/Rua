@@ -12,6 +12,7 @@ using namespace std;
 
 // # define UCHAR_MAX (__SCHAR_MAX__ * 2 + 1)
 # define FIRST_RESERVED	(UCHAR_MAX + 1)
+# define DEBUG_LEX
 
 class RLex : public ISingleton<RLex> {
 public:
@@ -92,17 +93,78 @@ public:
 
         if (file.is_open()) {
             string line;
+            int lineNum = 0;
             while (getline(file, line)) {
+                lineNum++;
                 istringstream iss(line);
                 string s;
                 while (iss >> s) {
                     auto it = tokensMap.find(s);
                     if (it != tokensMap.end()) {
                         tokens.push_back({ it->second, "" });
+#ifdef DEBUG_LEX
                         cout << s << " " << it->second << endl;
+#endif
                     }
                     else {
+#ifdef DEBUG_LEX
                         cout << s << endl;
+#endif 
+                        bool skipLine = false;
+                        for (int i = 0; i < s.length(); i++) {
+                            char c = s[i];
+                            if (c == '-') {  // 判断是负号'-' 还是注释'--'
+                                if (s[i + 1] != '-') {
+                                    tokens.push_back({ (int)c, "" });
+                                }
+                                else {
+                                    i++;
+                                    if (s[i + 1] == '[') {  //长注释
+                                        // read long comment
+                                    }
+                                    else {
+                                        skipLine = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (c == '[') {
+                                
+                            }
+                            else if (c == '=') {
+                                
+                            }
+                            else if (c == '<') {
+                                
+                            }
+                            else if (c == '>') {
+                                
+                            }
+                            else if (c == '/') {
+                                
+                            }
+                            else if (c == '~') {
+                                
+                            }
+                            else if (c == ':') {
+                                
+                            }
+                            else if (c == '"' or c=='\'') {  // string
+                                
+                            }
+                            else if (c == '.') {  // '.' '..' '...'
+                                
+                            }
+                            else if (c >= '0' && c <= '9') { // 数字
+                                
+                            }
+                            else {
+
+                            }
+                        }
+                        if (skipLine) {
+                            break;
+                        }
                     }
                 }
             }
