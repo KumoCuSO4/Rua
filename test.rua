@@ -1,1 +1,3 @@
-local num = 123
+local num = 123 --line one
+num = num + 1
+print(num)

@@ -8,13 +8,16 @@
 #include <unordered_map>
 #include <string>
 #include <sstream>
+#include <cstring>
 using namespace std;
 
 // # define UCHAR_MAX (__SCHAR_MAX__ * 2 + 1)
 # define FIRST_RESERVED	(UCHAR_MAX + 1)
 # define DEBUG_LEX
+typedef void (*FunctionPtr)();
 
 class RLex : public ISingleton<RLex> {
+
 public:
     // 保留字 从UCHAR_MAX后开始为了区别于所有单字符的关键字 （单字符如‘+’将直接对应他的ascii值）
     enum RESERVED {
@@ -75,100 +78,154 @@ public:
         //"def", "auto", "bool", "int", "float", "double", "string"
     };
 
-    // unordered_set<char> whiteSpace = { ' ', '\r', '\n', '\t' };
+    unordered_set<char> whiteSpace = { ' ', '\t', '\f', '\v' };
+    unordered_set<char> newLine = { '\r', '\n' };
 
     struct Token {
         int tid;
         string tinfo;
     };
 
+    Token GetToken(string str) {
+        auto it = tokensMap.find(str);
+        if (it != tokensMap.end()) {
+            return { it->second, "" };
+        }
+        return { RESERVED::TK_NAME, str };
+    }
+
+private:
+    struct IOStatus {
+        int lineNum;
+        int inLinePos;
+    };
+
+    void inline AddToken(IOStatus* iostatus, Token token, vector<Token> &tokens) {
+        tokens.push_back(token);
+#ifdef DEBUG_LEX
+        
+        if (token.tid < SCHAR_MAX) {
+            cout << iostatus->lineNum << " " << iostatus->inLinePos << " " << (char)token.tid << " " << token.tinfo << endl;
+        }
+        else {
+            cout << iostatus->lineNum << " " << iostatus->inLinePos << " " << token.tid << " " << token.tinfo << endl;
+        }
+#endif
+    }
+
+    void inline StrToToken(IOStatus *iostatus, string &str, vector<Token> &tokens) {
+        if (str.length() > 0) {
+            AddToken(iostatus, GetToken(str), tokens);
+            str = "";
+        }
+    }
+
+public:
+    
     vector<Token> ReadStr(string str) {
         vector<Token> tokens;
         return tokens;
     }
 
+    
     vector<Token> ReadFile(string fileName) {
         ifstream file(fileName);
         vector<Token> tokens;
 
         if (file.is_open()) {
-            string line;
-            int lineNum = 0;
-            while (getline(file, line)) {
-                lineNum++;
-                istringstream iss(line);
-                string s;
-                while (iss >> s) {
-                    auto it = tokensMap.find(s);
-                    if (it != tokensMap.end()) {
-                        tokens.push_back({ it->second, "" });
+            char c;
+            IOStatus *iostatus = new IOStatus();
+            memset(iostatus, 0, sizeof(IOStatus));
+            while (file.get(c)) {
+                iostatus->inLinePos++;
+                //cout << c << " " << isalpha(c) << endl;
+                if (newLine.count(c) > 0) { //换行
+                    iostatus->lineNum++;
+                    iostatus->inLinePos = 0;
 #ifdef DEBUG_LEX
-                        cout << s << " " << it->second << endl;
+                    cout << "new line" << endl;
 #endif
-                    }
-                    else {
+                }
+                else if (whiteSpace.count(c) > 0) {
 #ifdef DEBUG_LEX
-                        cout << s << endl;
-#endif 
-                        bool skipLine = false;
-                        for (int i = 0; i < s.length(); i++) {
-                            char c = s[i];
-                            if (c == '-') {  // 判断是负号'-' 还是注释'--'
-                                if (s[i + 1] != '-') {
-                                    tokens.push_back({ (int)c, "" });
-                                }
-                                else {
-                                    i++;
-                                    if (s[i + 1] == '[') {  //长注释
-                                        // read long comment
-                                    }
-                                    else {
-                                        skipLine = true;
+                    cout << iostatus->lineNum << " " << iostatus->inLinePos << " " << "ws" << endl;
+#endif
+                }
+                else {
+                    if (c == '-') {  // 判断是负号'-' 还是注释'--'
+                        char nextc = file.peek();
+                        if (nextc != '-') {
+                            AddToken(iostatus, { (int)c, "" }, tokens);
+                        }
+                        else {
+                            file.get();
+                            nextc = file.peek();
+                            if (nextc == '[') {  // 长注释
+                                // read long comment
+                            }
+                            else { // 注释
+                                while (file.get(nextc)) {
+                                    if (newLine.count(nextc) > 0) { //换行
+                                        iostatus->lineNum++;
                                         break;
                                     }
                                 }
                             }
-                            else if (c == '[') {
-                                
-                            }
-                            else if (c == '=') {
-                                
-                            }
-                            else if (c == '<') {
-                                
-                            }
-                            else if (c == '>') {
-                                
-                            }
-                            else if (c == '/') {
-                                
-                            }
-                            else if (c == '~') {
-                                
-                            }
-                            else if (c == ':') {
-                                
-                            }
-                            else if (c == '"' or c=='\'') {  // string
-                                
-                            }
-                            else if (c == '.') {  // '.' '..' '...'
-                                
-                            }
-                            else if (c >= '0' && c <= '9') { // 数字
-                                
+                        }
+                    }
+                    else if (c == '[') {
+
+                    }
+                    else if (c == '=') {
+
+                    }
+                    else if (c == '<') {
+
+                    }
+                    else if (c == '>') {
+
+                    }
+                    else if (c == '/') {
+
+                    }
+                    else if (c == '~') {
+
+                    }
+                    else if (c == ':') {
+
+                    }
+                    else if (c == '"' || c == '\'') {  // string
+
+                    }
+                    else if (c == '.') {  // '.' '..' '...'
+
+                    }
+                    else if (isalnum(c)) {  // 数字
+
+                    }
+                    else if (isalpha(c) || c=='_') {  // name或多字符关键字
+                        string str = "";
+                        str = str + c;
+                        while (file.get(c)) {
+                            if (isalpha(c) || c == '_' || isalnum(c)) {
+                                str = str + c;
+                                file.get();
                             }
                             else {
-
+                                file.seekg(-1, std::ios_base::cur);
+                                break;
                             }
                         }
-                        if (skipLine) {
-                            break;
-                        }
+                        cout << str << endl;
+                        StrToToken(iostatus, str, tokens);
+                    }
+                    else {  // 单字符关键字
+                        AddToken(iostatus, { (int)c, "" }, tokens);
                     }
                 }
             }
             file.close();
+            delete iostatus;
         }
         else {
             cout << "无法打开文件"+fileName << endl;
